@@ -13,7 +13,7 @@ import asyncio
 import logging
 
 from ..agwpe_protocol import AgwFrame
-from ..channel import ChannelBusyError
+from ..channel import ChannelBusyError, ChannelState
 from .base import ModemBackend
 
 log = logging.getLogger(__name__)
@@ -69,11 +69,20 @@ class VaraModemBackend(ModemBackend):
     # -- command channel -----------------------------------------------
 
     async def _pump_commands(self, reader: asyncio.StreamReader) -> None:
+        # VARA terminates command lines with a bare '\r' (no '\n'), so
+        # readline() -- which only splits on '\n' -- would buffer every
+        # line forever and never deliver it (confirmed against mercury's
+        # tnc_send_* wire format, which is bare '\r' throughout).
         while True:
-            line = await reader.readline()
-            if not line:
+            try:
+                raw = await reader.readuntil(b"\r")
+            except asyncio.IncompleteReadError as exc:
+                if exc.partial:
+                    self._handle_command_line(exc.partial.decode("ascii", "ignore").strip())
                 break
-            self._handle_command_line(line.decode("ascii", "ignore").strip())
+            except asyncio.LimitOverrunError:
+                break
+            self._handle_command_line(raw.decode("ascii", "ignore").strip())
 
     def _handle_command_line(self, line: str) -> None:
         if not line:
@@ -86,6 +95,19 @@ class VaraModemBackend(ModemBackend):
             self.channel.mark_busy(self.name)
         elif line.startswith("BUSY OFF"):
             self.channel.mark_idle(self.name)
+
+        elif line.startswith("PTT ON"):
+            # Only claim the channel here for pre-connection keying (CQ,
+            # ARQ handshake on an inbound PENDING call, TUNE) -- an active
+            # session already holds the channel via acquire_connection,
+            # and mid-session PTT ON/OFF toggles once per frame, so
+            # treating those as fresh PTT requests would fight the
+            # session's own reservation on every single OFF.
+            if self.channel.state != ChannelState.CONNECTED:
+                self.channel.request_ptt(self.name)
+        elif line.startswith("PTT OFF"):
+            if self.channel.state != ChannelState.CONNECTED:
+                self.channel.release_ptt(self.name)
 
         elif keyword == "CONNECTED" and len(parts) >= 3:
             # VARA: "CONNECTED <remotecall> <mycall>"

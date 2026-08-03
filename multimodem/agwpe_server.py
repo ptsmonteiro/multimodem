@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import struct
 
 from .agwpe_protocol import AgwFrame, read_frame
 from .channel import ChannelBusyError
@@ -44,6 +45,7 @@ KIND_VERSION = b"R"
 KIND_REGISTER = b"X"
 KIND_UNREGISTER = b"x"
 KIND_PORT_INFO = b"G"
+KIND_PORT_CAPS = b"g"
 
 
 class AgwpeClientServer:
@@ -134,7 +136,28 @@ class AgwpeClientServer:
             return
 
         if frame.data_kind == KIND_VERSION:
-            reply = AgwFrame(port=frame.port, data_kind=b"R", data=b"\x02\x01\x00\x00")
+            # Wire format is "<H2xH2x" (major, 2 pad bytes, minor, 2 pad
+            # bytes) -- 8 bytes total. A short 4-byte reply is rejected
+            # outright by real AGWPE clients (verified against pyham_pe).
+            reply = AgwFrame(
+                port=frame.port, data_kind=b"R", data=struct.pack("<H2xH2x", 2, 1)
+            )
+            await self._reply(writer, reply)
+            return
+
+        if frame.data_kind == KIND_PORT_CAPS:
+            # Real AGWPE clients (pyham_pe, Winlink Express, ...) request
+            # capabilities for every port reported by 'G' as part of their
+            # connect-time handshake and hang waiting for a 'g' reply if
+            # none comes -- we don't track real radio parameters here, so
+            # report an all-zero/unknown capabilities struct just to
+            # complete the handshake. Wire format: 8 unsigned bytes then
+            # a uint32 (baud_rate, traffic_level, tx_delay, tx_tail,
+            # persist, slot_time, max_frame, active_connections,
+            # bytes_received).
+            reply = AgwFrame(
+                port=frame.port, data_kind=KIND_PORT_CAPS, data=struct.pack("<8BI", *([0] * 9))
+            )
             await self._reply(writer, reply)
             return
 
@@ -143,6 +166,18 @@ class AgwpeClientServer:
             self._registrations[(frame.port, callsign)] = writer
             log.info("registered %s on port %s", callsign, frame.port)
             await self._push_registered_calls(frame.port)
+            # AGWPE clients (e.g. pyham_pe, Winlink Express) wait for this
+            # 'X' confirmation before treating the callsign as registered
+            # and refuse to CONNECT/send data on it otherwise.
+            await self._reply(
+                writer,
+                AgwFrame(
+                    port=frame.port,
+                    data_kind=KIND_REGISTER,
+                    call_from=frame.call_from,
+                    data=b"\x01",
+                ),
+            )
             return
 
         if frame.data_kind == KIND_UNREGISTER:

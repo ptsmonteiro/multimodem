@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pyham_pe"]
 
 [project.scripts]
 multimodem = "multimodem.main:main"
