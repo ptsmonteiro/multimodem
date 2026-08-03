@@ -1,0 +1,60 @@
+# multimodem sample configuration
+
+# Side facing client apps (Winlink Express, UI-View, etc). Speaks AGWPE.
+[client_server]
+host = "0.0.0.0"
+port = 9000
+
+# rigctld-compatible PTT endpoint exposed to modems / rig control scripts.
+[rigctld]
+host = "0.0.0.0"
+port = 4532
+
+# Backend modems. Only one RF transmission may be active across all of
+# these at any time, since they share a single radio.
+
+[[modems]]
+name = "direwolf"
+type = "agwpe"
+host = "127.0.0.1"
+port = 8001
+# agwpe_port = 0  # direwolf channel (0 = its first, the default)
+
+# A second radio on the same direwolf instance (same TCP port, a
+# different AGWPE channel) shows up as its own modem entry here.
+# [[modems]]
+# name = "direwolf-uhf"
+# type = "agwpe"
+# host = "127.0.0.1"
+# port = 8001
+# agwpe_port = 1
+
+[[modems]]
+name = "ardop"
+type = "ardop"
+host = "127.0.0.1"
+port = 8515          # command port
+control_port = 8516  # data port
+
+[[modems]]
+name = "mercury"
+type = "vara"
+host = "127.0.0.1"
+port = 8300           # command port
+control_port = 8301   # data port
+
+# [[modems]]
+# name = "vara"
+# type = "vara"
+# host = "127.0.0.1"
+# port = 8300           # command port
+# control_port = 8301   # data port
+
+# Same VARA instance, its KISS interface for unproto/APRS traffic.
+# Shares the "vara" name so it shares one ChannelArbiter owner with
+# the ARQ entry above -- they're one physical radio, one channel.
+# [[modems]]
+# name = "vara"
+# type = "vara_kiss"
+# host = "127.0.0.1"
+# port = 8310           # VARA's KISS port

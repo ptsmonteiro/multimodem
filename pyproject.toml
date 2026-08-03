@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multimodem"
+version = "0.1.0"
+description = "AGWPE multiplexer for sharing one radio/channel across several packet modems (direwolf, ARDOP, VARA)"
+requires-python = ">=3.10"
+dependencies = [
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+multimodem = "multimodem.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
