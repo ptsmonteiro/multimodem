@@ -44,14 +44,17 @@ class PttControlConfig:
     setting for nonstandard hardware -- see config.example.toml.
     """
 
-    driver: str = "none"  # "none" | "cm108" | "civ" | "rigctld"
+    driver: str = "none"  # "none" | "cm108" | "civ" | "rts" | "rigctld"
 
     # civ: CAT PTT over a USB-serial CI-V connection (e.g. IC-705).
-    serial_port: str | None = None  # omit to auto-detect a single Icom USB device
-    baud: int | None = None  # required when driver = "civ"; no safe default
+    # rts: also uses serial_port -- the USB-serial port whose RTS line is
+    # wired to PTT.
+    serial_port: str | None = None  # omit to auto-detect a single Icom USB device (civ only)
+    baud: int | None = None  # required when driver = "civ"; defaults to 9600 for "rts"
     radio_address: int | None = None  # defaults to the IC-705's 0xa4
 
     # cm108: USB-audio-fob GPIO PTT (Digirig, SignaLink, ...).
+    # active_high is also used by "rts" (True = PTT keys on RTS high).
     vendor_id: int | None = None  # defaults to a common digirig CM108B id
     product_id: int | None = None
     gpio_pin: int | None = None  # defaults to 3, the common PTT wiring
@@ -64,10 +67,12 @@ class PttControlConfig:
     port: int = 4532
 
     def __post_init__(self) -> None:
-        if self.driver not in ("none", "cm108", "civ", "rigctld"):
+        if self.driver not in ("none", "cm108", "civ", "rts", "rigctld"):
             raise ValueError(f"unknown ptt_control.driver: {self.driver!r}")
         if self.driver == "civ" and self.baud is None:
             raise ValueError('ptt_control.baud is required when driver = "civ"')
+        if self.driver == "rts" and self.serial_port is None:
+            raise ValueError('ptt_control.serial_port is required when driver = "rts"')
 
 
 @dataclass

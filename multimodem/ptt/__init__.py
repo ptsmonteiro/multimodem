@@ -47,6 +47,10 @@ def build_ptt_driver(config: PttControlConfig) -> PttDriver:
         from .civ import CivPttDriver
 
         return CivPttDriver(config)
+    if config.driver == "rts":
+        from .rts import RtsPttDriver
+
+        return RtsPttDriver(config)
     if config.driver == "rigctld":
         from .rigctld_client import RigctldPttDriver
 

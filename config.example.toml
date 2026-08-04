@@ -29,7 +29,7 @@ port = 4532
 #     their own PTT setting at the [rigctld] server above instead (see
 #     the direwolf entry below).
 [ptt_control]
-driver = "none"   # "none" | "cm108" | "civ" | "rigctld"
+driver = "none"   # "none" | "cm108" | "civ" | "rts" | "rigctld"
 
 # --- driver = "cm108": Digirig / SignaLink-style USB-audio-fob GPIO PTT.
 # Nothing below is required for a stock digirig -- only set these if you
@@ -39,6 +39,13 @@ driver = "none"   # "none" | "cm108" | "civ" | "rigctld"
 # product_id = 0x000c
 # gpio_pin = 3            # which GPIO pin PTT is wired to
 # active_high = true      # false if PTT keys on GPIO low instead
+
+# --- driver = "rts": some Digirig/USB-serial interfaces key PTT off the
+# RTS handshake line of their USB-serial port instead of a CM108 GPIO --
+# use this if a working direwolf config for the same interface says
+# "PTT <port> RTS" rather than naming a CM108 GPIO pin.
+# serial_port = "COM5"    # e.g. "COM5" on Windows, "/dev/ttyUSB0" on Linux
+# active_high = true      # false if PTT keys on RTS low instead
 
 # --- driver = "civ": Icom CAT PTT over USB-serial (e.g. IC-705). No
 # extra PTT wiring needed -- just the radio's USB CAT/CDC serial port.
