@@ -93,7 +93,22 @@ class CivPttDriver(PttDriver):
     def start(self) -> None:
         port = self.serial_port or select_civ_port(list_ports.comports())
         try:
-            self._serial = serial.Serial(port, self.baud, timeout=READ_TIMEOUT_S)
+            # rts/dtr explicitly False before open: PTT here is keyed
+            # purely over CI-V commands below. pyserial defaults both
+            # lines high, and some USB-CAT interfaces treat RTS as a
+            # hardware PTT line -- leaving it default-high would key the
+            # radio the moment the port opens, independent of (and
+            # outliving) the CI-V PTT off command. rts/dtr can only be
+            # set before open(), hence the unopened-port dance here
+            # instead of passing port to the Serial() constructor.
+            ser = serial.Serial()
+            ser.port = port
+            ser.baudrate = self.baud
+            ser.timeout = READ_TIMEOUT_S
+            ser.rts = False
+            ser.dtr = False
+            ser.open()
+            self._serial = ser
         except serial.SerialException as exc:
             raise PttError(f"cannot open civ serial port {port}: {exc}") from exc
         log.info(

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import time
 
 from .agwpe_server import AgwpeClientServer
 from .channel import ChannelArbiter
@@ -13,7 +14,7 @@ from .modems.ardop import ArdopModemBackend
 from .modems.base import ModemBackend
 from .modems.vara import VaraModemBackend
 from .modems.vara_kiss import VaraKissBackend
-from .ptt import build_ptt_driver
+from .ptt import PttError, build_ptt_driver
 from .rigctld_server import RigctldServer
 
 log = logging.getLogger(__name__)
@@ -66,10 +67,45 @@ async def run(config: AppConfig) -> None:
         ptt_driver.stop()
 
 
+def ptt_test(config: AppConfig, hold_seconds: float = 1.0) -> None:
+    """Key the configured PTT driver on, hold, then unkey. For bench-testing PTT wiring/config."""
+    if config.ptt_control.driver == "none":
+        log.warning("ptt_control.driver is \"none\" -- nothing to test, no radio configured")
+        return
+
+    log.info("ptt-test: driver=%s, starting driver", config.ptt_control.driver)
+    try:
+        ptt_driver = build_ptt_driver(config.ptt_control)
+        ptt_driver.start()
+    except PttError as exc:
+        log.error("ptt-test: failed to start driver: %s", exc)
+        raise SystemExit(1) from exc
+
+    try:
+        log.info("ptt-test: keying PTT ON")
+        ptt_driver.set_ptt(True)
+        log.info("ptt-test: PTT keyed, holding for %.1fs", hold_seconds)
+        time.sleep(hold_seconds)
+        log.info("ptt-test: unkeying PTT OFF")
+        ptt_driver.set_ptt(False)
+        log.info("ptt-test: PTT unkeyed")
+    except PttError as exc:
+        log.error("ptt-test: PTT command failed: %s", exc)
+        raise SystemExit(1) from exc
+    finally:
+        ptt_driver.stop()
+    log.info("ptt-test: done")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Amateur radio modem multiplexer")
     parser.add_argument("-c", "--config", default="config.toml")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--ptt-test",
+        action="store_true",
+        help="key PTT on for 1s then off using the configured ptt_control driver, then exit",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -78,6 +114,11 @@ def main() -> None:
     )
 
     config = AppConfig.from_file(args.config)
+
+    if args.ptt_test:
+        ptt_test(config)
+        return
+
     asyncio.run(run(config))
 
 

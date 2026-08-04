@@ -10,13 +10,19 @@ from multimodem.ptt.civ import CivPttDriver, select_civ_port
 
 
 class FakeSerial:
-    def __init__(self, port: str, baud: int, timeout: float) -> None:
-        self.port = port
-        self.baud = baud
-        self.timeout = timeout
+    def __init__(self) -> None:
+        self.port = None
+        self.baudrate = None
+        self.timeout = None
+        self.rts = True
+        self.dtr = True
+        self.opened = False
         self.written: list[bytes] = []
         self.closed = False
         self.reply = bytes.fromhex("fefee0a4fbfd")  # default: OK ack
+
+    def open(self) -> None:
+        self.opened = True
 
     def reset_input_buffer(self) -> None:
         pass
@@ -37,14 +43,25 @@ class FakeSerial:
 def make_driver(monkeypatch, fake_serial: FakeSerial, **overrides) -> CivPttDriver:
     monkeypatch.setattr(
         "multimodem.ptt.civ.serial.Serial",
-        lambda port, baud, timeout: fake_serial,
+        lambda: fake_serial,
     )
     config = PttControlConfig(driver="civ", serial_port="/dev/fake", baud=19200, **overrides)
     return CivPttDriver(config)
 
 
+def test_start_opens_port_with_rts_dtr_low(monkeypatch):
+    fake = FakeSerial()
+    driver = make_driver(monkeypatch, fake)
+
+    driver.start()
+
+    assert fake.rts is False
+    assert fake.dtr is False
+    assert fake.opened is True
+
+
 def test_set_ptt_on_sends_civ_frame_with_default_address(monkeypatch):
-    fake = FakeSerial("/dev/fake", 19200, 1.0)
+    fake = FakeSerial()
     driver = make_driver(monkeypatch, fake)
     driver.start()
 
@@ -54,7 +71,7 @@ def test_set_ptt_on_sends_civ_frame_with_default_address(monkeypatch):
 
 
 def test_set_ptt_off_sends_civ_frame(monkeypatch):
-    fake = FakeSerial("/dev/fake", 19200, 1.0)
+    fake = FakeSerial()
     driver = make_driver(monkeypatch, fake)
     driver.start()
 
@@ -64,7 +81,7 @@ def test_set_ptt_off_sends_civ_frame(monkeypatch):
 
 
 def test_custom_radio_address_used_in_frame(monkeypatch):
-    fake = FakeSerial("/dev/fake", 19200, 1.0)
+    fake = FakeSerial()
     driver = make_driver(monkeypatch, fake, radio_address=0x58)
     driver.start()
 
@@ -74,7 +91,7 @@ def test_custom_radio_address_used_in_frame(monkeypatch):
 
 
 def test_ng_reply_raises_ptt_error(monkeypatch):
-    fake = FakeSerial("/dev/fake", 19200, 1.0)
+    fake = FakeSerial()
     fake.reply = bytes.fromhex("fefee0a4fafd")
     driver = make_driver(monkeypatch, fake)
     driver.start()
@@ -84,7 +101,7 @@ def test_ng_reply_raises_ptt_error(monkeypatch):
 
 
 def test_no_reply_raises_ptt_error(monkeypatch):
-    fake = FakeSerial("/dev/fake", 19200, 1.0)
+    fake = FakeSerial()
     fake.reply = b""
     driver = make_driver(monkeypatch, fake)
     driver.start()
@@ -100,7 +117,7 @@ def test_set_ptt_before_start_raises():
 
 
 def test_stop_unkeys_and_closes_port(monkeypatch):
-    fake = FakeSerial("/dev/fake", 19200, 1.0)
+    fake = FakeSerial()
     driver = make_driver(monkeypatch, fake)
     driver.start()
 
