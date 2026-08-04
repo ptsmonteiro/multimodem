@@ -13,7 +13,7 @@ import asyncio
 import logging
 
 from ..agwpe_protocol import AgwFrame
-from ..channel import ChannelBusyError, ChannelState
+from ..channel import ChannelBusyError
 from .base import ModemBackend
 
 log = logging.getLogger(__name__)
@@ -97,17 +97,26 @@ class VaraModemBackend(ModemBackend):
             self.channel.mark_idle(self.name)
 
         elif line.startswith("PTT ON"):
-            # Only claim the channel here for pre-connection keying (CQ,
-            # ARQ handshake on an inbound PENDING call, TUNE) -- an active
-            # session already holds the channel via acquire_connection,
-            # and mid-session PTT ON/OFF toggles once per frame, so
-            # treating those as fresh PTT requests would fight the
-            # session's own reservation on every single OFF.
-            if self.channel.state != ChannelState.CONNECTED:
-                self.channel.request_ptt(self.name)
+            # Covers both pre-connection keying (CQ, ARQ handshake on an
+            # inbound PENDING call, TUNE) and mid-session ARQ frames,
+            # which toggle PTT once per frame. request_ptt/release_ptt
+            # tell CONNECTED sessions apart from a fresh acquisition
+            # (see channel.py) so this can't clobber the session's own
+            # reservation -- it just keys hardware for owners that
+            # already hold the channel.
+            #
+            # VARA doesn't check this return value -- it already decided
+            # to transmit -- so a refusal means VARA is about to send
+            # audio with no hardware PTT keyed. Log it loudly rather
+            # than dropping it silently.
+            if not self.channel.request_ptt(self.name):
+                log.warning(
+                    "%s: PTT ON refused, channel busy (%s) -- radio will not be "
+                    "keyed for this transmission",
+                    self.name, self.channel.owner,
+                )
         elif line.startswith("PTT OFF"):
-            if self.channel.state != ChannelState.CONNECTED:
-                self.channel.release_ptt(self.name)
+            self.channel.release_ptt(self.name)
 
         elif keyword == "CONNECTED" and len(parts) >= 3:
             # VARA: "CONNECTED <remotecall> <mycall>"

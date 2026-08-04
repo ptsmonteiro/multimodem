@@ -13,6 +13,7 @@ from .modems.ardop import ArdopModemBackend
 from .modems.base import ModemBackend
 from .modems.vara import VaraModemBackend
 from .modems.vara_kiss import VaraKissBackend
+from .ptt import build_ptt_driver
 from .rigctld_server import RigctldServer
 
 log = logging.getLogger(__name__)
@@ -38,6 +39,10 @@ def build_backends(config: AppConfig, channel: ChannelArbiter) -> dict[int, Mode
 
 async def run(config: AppConfig) -> None:
     channel = ChannelArbiter()
+    ptt_driver = build_ptt_driver(config.ptt_control)
+    ptt_driver.start()
+    channel.on_ptt = ptt_driver.set_ptt
+
     modems = build_backends(config, channel)
 
     for modem in modems.values():
@@ -58,6 +63,7 @@ async def run(config: AppConfig) -> None:
         await rigctld.stop()
         for modem in modems.values():
             await modem.stop()
+        ptt_driver.stop()
 
 
 def main() -> None:

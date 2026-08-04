@@ -228,6 +228,32 @@ def test_ptt_on_off_during_active_session_does_not_disturb_connected_state():
     assert backend.channel.owner == "vara"
 
 
+def test_ptt_on_refused_logs_warning(caplog):
+    backend = make_backend()
+    backend.channel.acquire_connection("ardop")  # another owner holds it
+
+    with caplog.at_level(logging.WARNING):
+        backend._handle_command_line("PTT ON")
+
+    assert backend.channel.owner == "ardop"  # unchanged, still refused
+    assert "PTT ON refused" in caplog.text
+
+
+def test_ptt_on_off_during_active_session_still_keys_hardware():
+    # Unlike the arbiter state (pinned above), a hardware PTT hook must
+    # fire on every mid-session toggle -- that's the actual over-the-air
+    # keying for real ARQ traffic, not just pre-connection tones.
+    backend = make_backend()
+    events = []
+    backend.channel.on_ptt = events.append
+    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1")
+
+    backend._handle_command_line("PTT ON")
+    backend._handle_command_line("PTT OFF")
+
+    assert events == [True, False]
+
+
 def test_connected_line_with_bandwidth_field_still_parses():
     # Real VARA/VARA-compatible TNCs (confirmed against mercury's
     # tnc_send_connected) send a 4th bandwidth field: "CONNECTED <src>

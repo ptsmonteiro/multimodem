@@ -12,7 +12,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pyham_pe"]
+hardware = ["hidapi", "pyserial"]
+dev = ["pytest", "pyham_pe", "hidapi", "pyserial"]
 
 [project.scripts]
 multimodem = "multimodem.main:main"
