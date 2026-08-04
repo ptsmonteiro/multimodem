@@ -124,7 +124,7 @@ def test_connect_sends_mycall_and_listen_on_once_registered():
 
 def test_inbound_connected_line_produces_connect_frame():
     async def scenario(fake, backend, received):
-        fake.send_cmd_line("CONNECTED REMOTE-1 N0CALL-1")
+        fake.send_cmd_line("CONNECTED N0CALL-1 REMOTE-1")
         await fake.drain_cmd()
 
         for _ in range(50):
@@ -141,7 +141,7 @@ def test_inbound_connected_line_produces_connect_frame():
 
 def test_data_flows_both_directions_once_connected():
     async def scenario(fake, backend, received):
-        fake.send_cmd_line("CONNECTED REMOTE-1 N0CALL-1")
+        fake.send_cmd_line("CONNECTED N0CALL-1 REMOTE-1")
         await fake.drain_cmd()
         for _ in range(50):
             if received:
@@ -171,7 +171,7 @@ def test_data_flows_both_directions_once_connected():
 
 def test_disconnected_line_releases_channel():
     async def scenario(fake, backend, received):
-        fake.send_cmd_line("CONNECTED REMOTE-1 N0CALL-1")
+        fake.send_cmd_line("CONNECTED N0CALL-1 REMOTE-1")
         await fake.drain_cmd()
         for _ in range(50):
             if received:
@@ -207,7 +207,7 @@ def test_ack_lines_interleaved_with_commands_are_ignored():
         fake.send_cmd_line("OK")
         fake.send_cmd_line("OK")
         fake.send_cmd_line("IAMALIVE")
-        fake.send_cmd_line("CONNECTED REMOTE-1 N0CALL-1 2750")
+        fake.send_cmd_line("CONNECTED N0CALL-1 REMOTE-1 2750")
         await fake.drain_cmd()
 
         for _ in range(50):

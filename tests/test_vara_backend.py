@@ -138,7 +138,7 @@ def test_connected_line_begins_session_and_emits_connect_frame():
     received = []
     backend.on_frame = received.append
 
-    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1")
+    backend._handle_command_line("CONNECTED N0CALL-1 REMOTE-1")
 
     assert backend._session_remote == "REMOTE-1"
     assert backend._session_local == "N0CALL-1"
@@ -155,7 +155,7 @@ def test_connected_line_ignored_when_channel_held_elsewhere():
     received = []
     backend.on_frame = received.append
 
-    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1")
+    backend._handle_command_line("CONNECTED N0CALL-1 REMOTE-1")
 
     assert backend._session_local is None
     assert received == []
@@ -166,7 +166,7 @@ def test_disconnected_line_ends_session_and_emits_disconnect_frame():
     backend._mycalls = ["N0CALL-1"]
     received = []
     backend.on_frame = received.append
-    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1")
+    backend._handle_command_line("CONNECTED N0CALL-1 REMOTE-1")
     received.clear()
 
     asyncio.run(_handle_line_async(backend, "DISCONNECTED"))
@@ -216,7 +216,7 @@ def test_ptt_on_off_during_active_session_does_not_disturb_connected_state():
     # TRANSMITTING and then to IDLE on the very first mid-session PTT
     # OFF, dropping the session's channel reservation out from under it.
     backend = make_backend()
-    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1")
+    backend._handle_command_line("CONNECTED N0CALL-1 REMOTE-1")
     assert backend.channel.state == ChannelState.CONNECTED
 
     backend._handle_command_line("PTT ON")
@@ -246,7 +246,7 @@ def test_ptt_on_off_during_active_session_still_keys_hardware():
     backend = make_backend()
     events = []
     backend.channel.on_ptt = events.append
-    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1")
+    backend._handle_command_line("CONNECTED N0CALL-1 REMOTE-1")
 
     backend._handle_command_line("PTT ON")
     backend._handle_command_line("PTT OFF")
@@ -255,15 +255,15 @@ def test_ptt_on_off_during_active_session_still_keys_hardware():
 
 
 def test_connected_line_with_bandwidth_field_still_parses():
-    # Real VARA/VARA-compatible TNCs (confirmed against mercury's
-    # tnc_send_connected) send a 4th bandwidth field: "CONNECTED <src>
-    # <dst> <bw>". Our tests elsewhere use the bare 3-token form; this
-    # pins down that the real 4-token wire format also parses.
+    # Real VARA/VARA-compatible TNCs send a 4th bandwidth field:
+    # "CONNECTED <mycall> <dxcall> <bw>". Our tests elsewhere use the
+    # bare 3-token form; this pins down that the real 4-token wire
+    # format also parses.
     backend = make_backend()
     received = []
     backend.on_frame = received.append
 
-    backend._handle_command_line("CONNECTED REMOTE-1 N0CALL-1 2750")
+    backend._handle_command_line("CONNECTED N0CALL-1 REMOTE-1 2750")
 
     assert backend._session_remote == "REMOTE-1"
     assert backend._session_local == "N0CALL-1"

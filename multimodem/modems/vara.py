@@ -119,8 +119,8 @@ class VaraModemBackend(ModemBackend):
             self.channel.release_ptt(self.name)
 
         elif keyword == "CONNECTED" and len(parts) >= 3:
-            # VARA: "CONNECTED <remotecall> <mycall>"
-            self._begin_session(remote=parts[1].upper(), local=parts[2].upper())
+            # VARA: "CONNECTED <mycall> <dxcall> <bandwidth>"
+            self._begin_session(local=parts[1].upper(), remote=parts[2].upper())
 
         elif keyword == "DISCONNECTED":
             self._end_session()
